@@ -68,7 +68,11 @@ const CRow = ({ ch, pinned, preview, onPress, sep }: any) => {
       {/* Divider starts at the text, like iMessage and Telegram, so avatars read as one clean column. */}
       <View style={{ flex: 1, minWidth: 0, gap: 3, alignSelf: 'stretch', justifyContent: 'center', paddingVertical: 12, paddingRight: 16, borderBottomWidth: sep ? StyleSheet.hairlineWidth : 0, borderBottomColor: c.line }}>
         <Row gap={8} style={{ alignItems: 'baseline' }}>
-          <T s={16} lh={21} w="600" n={1} style={{ flex: 1 }}>{title}{dv ? <T s={14} lh={21} col={c.ink3}>{`  ${dv}`}</T> : null}</T>
+          {/* The name truncates; the division never does, so long course names still say which division. */}
+          <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+            <T s={16} lh={21} w="600" n={1} style={{ flexShrink: 1 }}>{title}</T>
+            {dv ? <T s={14} lh={21} col={c.ink3} n={1} style={{ flexShrink: 0 }}>{dv}</T> : null}
+          </View>
           {last ? <T s={12} lh={16} w={u ? '600' : undefined} col={u ? c.greenText : c.ink3}>{fmtRow(last.sent_at)}</T> : null}
         </Row>
         <Row gap={6}>
@@ -86,7 +90,7 @@ const yearOf = (id: string) => byId('academic_years', id);
 const currentYear = () => db().academic_years.find(y => y.is_current);
 const YearBar = ({ yearId, parity, onParity, inArchive }: any) => (
   <Row gap={10} style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-    <Tap onPress={() => openTerm(yearId, inArchive)} label={yearOf(yearId)?.label} style={{ flex: 1.4, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 14, borderRadius: 999, backgroundColor: c.surface, boxShadow: `inset 0 0 0 1px ${c.line}` } as any}>
+    <Tap onPress={() => openTerm(yearId, inArchive)} label={yearOf(yearId)?.label} style={{ flex: 1.4, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingLeft: 16, paddingRight: 14, borderRadius: 999, backgroundColor: c.sunken }}>
       <T s={15} w="600">{yearOf(yearId)?.label}</T><Ms n="expand_more" s={20} col={c.ink2} />
     </Tap>
     <View style={{ flex: 1, flexDirection: 'row', gap: 2, padding: 3, height: 44, borderRadius: 999, backgroundColor: c.sunken }}>
@@ -224,7 +228,7 @@ const Search = ({ route }: any) => {
         <SearchBar placeholder="Search chats, people, files" value={q} onChange={setQ} autoFocus style={{ flex: 1, marginTop: 6, marginRight: 8 }} />
         <BtnT onPress={back} style={{ marginTop: 6 }}>Cancel</BtnT>
       </Row>
-      <Chips items={['Everything', 'Chats', 'People', 'Messages', 'Files']} on={f} onPick={setF} style={{ paddingTop: 10 }} />
+      <Chips soft items={['Everything', 'Chats', 'People', 'Messages', 'Files']} on={f} onPick={setF} style={{ paddingTop: 10 }} />
       <Body pad={24}>
         {!needle ? (
           <>
