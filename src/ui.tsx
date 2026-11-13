@@ -95,15 +95,19 @@ export const Seg = ({ items, on, onPick, style }: { items: string[]; on: string;
 );
 
 /** .chip row. */
-export const Chip = ({ label, on, onPress, icon }: { label: string; on?: boolean; onPress?: () => void; icon?: string }) => (
-  <Tap onPress={onPress} label={label} style={{ height: 32, paddingHorizontal: 14, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: on ? c.ink : c.surface, borderWidth: 1, borderColor: on ? c.ink : c.line }}>
-    {icon ? <Ms n={icon} s={16} col={on ? c.onFill : c.ink2} /> : null}
-    <T s={13} lh={18} w="500" col={on ? c.onFill : c.ink2}>{label}</T>
-  </Tap>
-);
-export const Chips = ({ items, on, onPick, style }: { items: string[]; on: string; onPick: (x: string) => void; style?: S }) => (
+/** soft = filled chips with a brand-tinted selection (chat list), instead of outlined with an ink selection. */
+export const Chip = ({ label, on, onPress, icon, soft }: { label: string; on?: boolean; onPress?: () => void; icon?: string; soft?: boolean }) => {
+  const bg = soft ? (on ? c.greenWash : c.sunken) : on ? c.ink : c.surface, fg = soft ? (on ? c.greenText : c.ink2) : on ? c.onFill : c.ink2;
+  return (
+    <Tap onPress={onPress} label={label} style={{ height: 32, paddingHorizontal: 14, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: bg, borderWidth: soft ? 0 : 1, borderColor: on ? c.ink : c.line }}>
+      {icon ? <Ms n={icon} s={16} col={fg} /> : null}
+      <T s={13} lh={18} w={on && soft ? '600' : '500'} col={fg}>{label}</T>
+    </Tap>
+  );
+};
+export const Chips = ({ items, on, onPick, style, soft }: { items: string[]; on: string; onPick: (x: string) => void; style?: S; soft?: boolean }) => (
   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={[{ gap: 6, paddingHorizontal: 16, paddingTop: 6 }, style]}>
-    {items.map(x => <Chip key={x} label={x} on={x === on || x.startsWith(on + ' ·')} onPress={() => onPick(x)} />)}
+    {items.map(x => <Chip key={x} soft={soft} label={x} on={x === on || x.startsWith(on + ' ·')} onPress={() => onPick(x)} />)}
   </ScrollView>
 );
 

@@ -1,6 +1,6 @@
 // Chat core (PRD 6.1–6.4, 6.8): chats list, archive, search, new chat, ChatTab (messages + composer + every hold action), thread, file, seen, polls.
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Linking, ScrollView, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Linking, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import { create } from 'zustand';
@@ -49,15 +49,33 @@ const chatPic = (ch: any, size = 48) => {
   const other = ch.kind === 'dm' ? otherMember(ch.id) : null;
   return <Pic img={ch.img || other?.img} name={rowInfo(ch).title} size={size} shape={other ? 'round' : 'course'} fac={other?.role === 'faculty'} badge={ch.kind === 'focus_batch' ? 'filter_center_focus' : undefined} />;
 };
-const CRow = ({ ch, pinned, preview, onPress }: any) => {
-  const { title, sub } = rowInfo(ch), last = lastOf(ch.id), u = unread(ch.id);
+/** Two lines, WhatsApp-style: name + time, then preview + badge. The division rides muted after course names so two divisions never look alike. */
+/** My last message shows its state as a tick (WhatsApp/Telegram), not "You:". */
+const Tick = ({ m }: any) => {
+  if (m.status === 'waiting') return <Ms n="schedule" s={16} col={c.ink3} />;
+  if (m.status === 'failed') return <Ms n="error" s={16} col={c.negative} />;
+  const rc = where('message_receipts', r => r.message_id === m.id);
+  return <Ms n={rc.length ? 'done_all' : 'check'} s={16} col={rc.length && rc.every(r => r.seen_at) ? c.greenText : c.ink3} />;
+};
+const CRow = ({ ch, pinned, preview, onPress, sep }: any) => {
+  const { title } = rowInfo(ch), last = lastOf(ch.id), u = unread(ch.id);
+  const dv = ch.kind === 'course' || ch.kind === 'focus_batch' ? divOf(ch)?.name : null;
+  const mineLast = !preview && last && last.kind !== 'system' && last.sender_id === meId() && !last.unsent_at;
+  const text = preview ?? (mineLast ? previewOf(last).replace(/^You: /, '') : previewOf(last));
   return (
-    <Tap onPress={onPress ?? (() => openChat(ch.id))} label={title} style={{ flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, minHeight: 76 }}>
-      {chatPic(ch)}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Row gap={8} style={{ alignItems: 'baseline' }}><T s={16} lh={21} w="600" n={1} style={{ flex: 1 }}>{title}</T>{last ? <T s={12} lh={16} w={u ? '600' : undefined} col={u ? c.greenText : c.ink3}>{fmtRow(last.sent_at)}</T> : null}</Row>
-        <T s={13} lh={17} col={c.ink3} n={1}>{sub}</T>
-        <Row gap={8}><T s={14} lh={19} col={c.ink2} n={1} style={{ flex: 1 }}>{preview ?? previewOf(last)}</T>{u ? <Badge n={u} /> : null}{pinned ? <Ms n="keep" s={16} col={c.ink3} /> : null}</Row>
+    <Tap onPress={onPress ?? (() => openChat(ch.id))} label={dv ? `${title}, ${dv}` : title} style={{ flexDirection: 'row', gap: 14, alignItems: 'center', paddingLeft: 16, minHeight: 76 }}>
+      {chatPic(ch, 52)}
+      {/* Divider starts at the text, like iMessage and Telegram, so avatars read as one clean column. */}
+      <View style={{ flex: 1, minWidth: 0, gap: 3, alignSelf: 'stretch', justifyContent: 'center', paddingVertical: 12, paddingRight: 16, borderBottomWidth: sep ? StyleSheet.hairlineWidth : 0, borderBottomColor: c.line }}>
+        <Row gap={8} style={{ alignItems: 'baseline' }}>
+          <T s={16} lh={21} w="600" n={1} style={{ flex: 1 }}>{title}{dv ? <T s={14} lh={21} col={c.ink3}>{`  ${dv}`}</T> : null}</T>
+          {last ? <T s={12} lh={16} w={u ? '600' : undefined} col={u ? c.greenText : c.ink3}>{fmtRow(last.sent_at)}</T> : null}
+        </Row>
+        <Row gap={6}>
+          {mineLast ? <Tick m={last} /> : null}
+          <T s={14} lh={19} col={u ? c.ink : c.ink3} n={1} style={{ flex: 1 }}>{text}</T>
+          {pinned ? <Ms n="keep" s={16} col={c.ink3} /> : null}{u ? <Badge n={u} /> : null}
+        </Row>
       </View>
     </Tap>
   );
@@ -94,11 +112,10 @@ function openTerm(yearId: string, inArchive?: boolean) {
     </SheetBody>
   ));
 }
+/** Title only; search is the bar below it, and Archived lives at the end of the list (one way in, not two). */
 const Head = () => (
-  <Row gap={4} style={{ minHeight: 52, paddingLeft: 20, paddingRight: 6 }}>
-    <T v s={22} lh={28} style={{ flex: 1 }}>Chat</T>
-    <IB n="search" label="Search chats, people, files" onPress={() => go('Chat-S05a-SearchStart')} />
-    <IB n="archive" label="Archived chats from past semesters" onPress={() => go('Chat-A01-Archive')} />
+  <Row style={{ minHeight: 52, paddingHorizontal: 20 }}>
+    <T v s={22} lh={28}>Chat</T>
   </Row>
 );
 /** Focus batch (breakout) lives inside a course chat: pick the class, then the students. */
@@ -121,9 +138,9 @@ const ChatsList = () => {
   const recent = (a: any, b: any) => (lastOf(b.id)?.sent_at || b.created_at || 0) - (lastOf(a.id)?.sent_at || a.created_at || 0);
   const mine = myChats().filter(ch => ch.academic_year_id === yr && (ch.kind !== 'dm' || lastOf(ch.id))).sort(recent);
   const total = mine.reduce((n, ch) => n + unread(ch.id), 0);
-  const items = ['All', `Unread ${total}`, 'Clubs', 'Courses'];
+  const items = ['All', total ? `Unread ${total}` : 'Unread', 'Clubs', 'Courses'];
   const show = mine.filter(ch => f === 'All' || (f === 'Unread' && unread(ch.id)) || (f === 'Clubs' && ch.kind === 'club') || (f === 'Courses' && (ch.kind === 'course' || ch.kind === 'focus_batch')));
-  const rows = (xs: any[]) => xs.map(ch => <CRow key={ch.id} ch={ch} pinned={!fac && ch.kind === 'class_group'} />);
+  const rows = (xs: any[]) => xs.map((ch, i) => <CRow key={ch.id} ch={ch} sep={i < xs.length - 1} pinned={!fac && ch.kind === 'class_group'} />);
   let content: any;
   if (!mine.length) content = <Empty icon="forum" title="No chats yet" line="Your class group and course chats show up here when the semester starts." action="Start a chat" onAction={() => go('Chat-X01-NewChat')} />;
   else if (!show.length) content = <Empty icon="forum" title={f === 'Unread' ? 'No unread chats' : `No ${f.toLowerCase()} here`} />;
@@ -138,7 +155,8 @@ const ChatsList = () => {
   return (
     <Screen>
       <Head />
-      <Chips items={items} on={items.find(i => i.startsWith(f)) as string} onPick={x => setF(x.split(' ')[0])} style={{ paddingTop: 10, paddingBottom: 4 }} />
+      <SearchBar placeholder="Search chats, people, files" onPress={() => go('Chat-S05a-SearchStart')} style={{ marginTop: 2 }} />
+      <Chips soft items={items} on={items.find(i => i.startsWith(f)) as string} onPick={x => setF(x.split(' ')[0])} style={{ paddingTop: 12, paddingBottom: 8 }} />
       <Body pad={96}>{content}</Body>
       <Fab overTabs round label="New chat" icon="edit_square" onPress={startNew} />
     </Screen>
